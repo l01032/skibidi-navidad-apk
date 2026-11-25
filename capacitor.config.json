@@ -1,0 +1,8 @@
+{
+  "appId": "com.skibidi.navidad",
+  "appName": "Contador Skibidi para Navidad",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#05070a"
+  }
+}
