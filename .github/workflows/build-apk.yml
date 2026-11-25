@@ -12,7 +12,7 @@ jobs:
       - name: Descargar codigo del repo
         uses: actions/checkout@v4
 
-      - name: Preparar Node.js y Java
+      - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -26,9 +26,12 @@ jobs:
       - name: Instalar Capacitor y preparar carpeta web
         run: |
           npm install
-          mkdir -p www
+          npm install -D @capacitor/assets
+          mkdir -p www assets
           cp index.html www/
+          if [ -f icon.png ]; then cp icon.png assets/icon.png; fi
           npx cap add android
+          if [ -f assets/icon.png ]; then npx capacitor-assets generate --android --iconBackgroundColor '#05070a'; fi
           npx cap sync android
 
       - name: Poner pantalla completa sin barra de estado
@@ -51,4 +54,3 @@ jobs:
         with:
           name: Contador-Skibidi-Navidad-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
-
