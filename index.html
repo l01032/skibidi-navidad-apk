@@ -169,73 +169,101 @@ function frame(now){
 }
 cv.addEventListener('pointerdown',()=>{t0=performance.now()});
 requestAnimationFrame(frame);
-// --- MOTOR DE AUDIO NAVIDEÑO 8-BIT (SIN ARCHIVOS EXTERNOS) ---
-let audioCtx=null, muted=false, step=0, timer=null;
-const MELODY=[
-  [659,1],[659,1],[659,2], [659,1],[659,1],[659,2],
-  [659,1],[784,1],[523,1.5],[587,0.5],[659,3],[0,1],
-  [698,1],[698,1],[698,1.5],[698,0.5], [698,1],[659,1],[659,1],[659,0.5],[659,0.5],
-  [659,1],[587,1],[587,1],[659,1], [587,2],[784,2],
-  [659,1],[659,1],[659,2], [659,1],[659,1],[659,2],
-  [659,1],[784,1],[523,1.5],[587,0.5],[659,3],[0,1],
-  [698,1],[698,1],[698,1.5],[698,0.5], [698,1],[659,1],[659,1],[659,0.5],[659,0.5],
-  [784,1],[784,1],[698,1],[587,1], [523,3],[0,1]
+// --- MOTOR DE AUDIO NAVIDENO 8-BIT ---
+let audioCtx = null;
+let muted = false;
+let step = 0;
+
+// Notas de Jingle Bells en Hz (frecuencia, duracion)
+const E5 = 659, G5 = 784, C5 = 523, D5 = 587, F5 = 698;
+const MELODY = [
+  E5, 1, E5, 1, E5, 2,
+  E5, 1, E5, 1, E5, 2,
+  E5, 1, G5, 1, C5, 1.5, D5, 0.5, E5, 4,
+  F5, 1, F5, 1, F5, 1.5, F5, 0.5,
+  F5, 1, E5, 1, E5, 1, E5, 0.5, E5, 0.5,
+  E5, 1, D5, 1, D5, 1, E5, 1, D5, 2, G5, 2,
+  E5, 1, E5, 1, E5, 2,
+  E5, 1, E5, 1, E5, 2,
+  E5, 1, G5, 1, C5, 1.5, D5, 0.5, E5, 4,
+  F5, 1, F5, 1, F5, 1.5, F5, 0.5,
+  F5, 1, E5, 1, E5, 1, E5, 0.5, E5, 0.5,
+  G5, 1, G5, 1, F5, 1, D5, 1, C5, 4
 ];
 
-function playTone(freq,dur,vol=0.06,type='triangle'){
-  if(!audioCtx||muted||freq<=0)return;
-  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-  o.type=type;o.frequency.value=freq;
-  g.gain.setValueAtTime(vol,audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+dur);
-  o.connect(g);g.connect(audioCtx.destination);
-  o.start();o.stop(audioCtx.currentTime+dur);
+function playTone(freq, dur, vol, type) {
+  if (!audioCtx || muted || freq <= 0) return;
+  const now = audioCtx.currentTime;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, now);
+  g.gain.setValueAtTime(vol, now);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  o.connect(g);
+  g.connect(audioCtx.destination);
+  o.start(now);
+  o.stop(now + dur);
 }
 
-function playSparkle(){
-  [1046,1318,1568,2093].forEach((f,i)=>setTimeout(()=>playTone(f,0.18,0.08,'sine'),i*55));
+function playSparkle() {
+  const chime =;
+  for (let i = 0; i < chime.length; i++) {
+    setTimeout(() => playTone(chime[i], 0.18, 0.08, 'sine'), i * 55);
+  }
 }
 
-function nextNote(){
-  const [freq,beats]=MELODY[step%MELODY.length];
-  const ms=beats*230;
-  playTone(freq,ms/1000*0.85,0.055,'triangle');
+function nextNote() {
+  const idx = (step * 2) % MELODY.length;
+  const freq = MELODY[idx];
+  const beats = MELODY[idx + 1];
+  const ms = beats * 230;
+  playTone(freq, (ms / 1000) * 0.85, 0.06, 'triangle');
   step++;
-  timer=setTimeout(nextNote,ms);
+  setTimeout(nextNote, ms);
 }
 
-const btn=document.createElement('button');
-btn.textContent='🔇';
-Object.assign(btn.style,{
-  position:'fixed',bottom:'14px',right:'14px',zIndex:'10',
-  background:'rgba(255,255,255,0.08)',color:'#ffd24d',
-  border:'1px solid rgba(255,210,77,0.35)',borderRadius:'50%',
-  width:'40px',height:'40px',fontSize:'18px',cursor:'pointer'
-});
+const btn = document.createElement('button');
+btn.textContent = '🔇';
+btn.style.position = 'fixed';
+btn.style.bottom = '14px';
+btn.style.right = '14px';
+btn.style.zIndex = '10';
+btn.style.background = 'rgba(255,255,255,0.08)';
+btn.style.color = '#ffd24d';
+btn.style.border = '1px solid rgba(255,210,77,0.35)';
+btn.style.borderRadius = '50%';
+btn.style.width = '40px';
+btn.style.height = '40px';
+btn.style.fontSize = '18px';
+btn.style.cursor = 'pointer';
 document.body.appendChild(btn);
 
-function unlockAudio(){
-  if(!audioCtx){
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    btn.textContent='🔊';
+function unlockAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    btn.textContent = '🔊';
     nextNote();
-  }else if(audioCtx.state==='suspended'){
+  } else if (audioCtx.state === 'suspended') {
     audioCtx.resume();
   }
 }
 
-btn.addEventListener('pointerdown',(e)=>{
+btn.addEventListener('pointerdown', (e) => {
   e.stopPropagation();
-  if(!audioCtx){unlockAudio();return;}
-  muted=!muted;
-  btn.textContent=muted?'🔇':'🔊';
+  if (!audioCtx) {
+    unlockAudio();
+    return;
+  }
+  muted = !muted;
+  btn.textContent = muted ? '🔇' : '🔊';
 });
 
-cv.addEventListener('pointerdown',()=>{
+cv.addEventListener('pointerdown', () => {
   unlockAudio();
   playSparkle();
 });
-
 </script>
 </body>
 </html>
