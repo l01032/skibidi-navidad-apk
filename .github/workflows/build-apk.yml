@@ -26,21 +26,87 @@ jobs:
       - name: Instalar Capacitor y preparar carpeta web
         run: |
           npm install
-          npm install -D @capacitor/assets
-          mkdir -p www assets
+          mkdir -p www
           cp index.html www/
-          if [ -f icon.png ]; then cp icon.png assets/icon.png; fi
           npx cap add android
-          if [ -f assets/icon.png ]; then npx capacitor-assets generate --android --iconBackgroundColor '#05070a'; fi
           npx cap sync android
 
-      - name: Poner pantalla completa sin barra de estado
+      - name: Inyectar icono, modo inmersivo (juegos) y pantalla completa
         run: |
+          pip install pillow
           python3 -c '
+          import os, glob
+          from PIL import Image
+
+          # 1. Pantalla completa y recortes de camara (notch) en styles.xml
           p = "android/app/src/main/res/values/styles.xml"
           s = open(p).read()
-          s = s.replace("</style>", "<item name=\"android:windowFullscreen\">true</item></style>", 1)
+          extra_styles = """<item name="android:windowFullscreen">true</item>
+          <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+          <item name="android:navigationBarColor">#05070a</item>
+          <item name="android:statusBarColor">#05070a</item>
+          </style>"""
+          s = s.replace("</style>", extra_styles, 1)
           open(p, "w").write(s)
+
+          # 2. Modo Inmersivo Sticky en MainActivity.java (oculta notificaciones y barra de abajo)
+          ma_files = glob.glob("android/app/src/main/java/**/MainActivity.java", recursive=True)
+          for ma in ma_files:
+              code = """package com.skibidi.navidad;
+
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.WindowManager;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  hideSystemUI();
+              }
+
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) {
+                      hideSystemUI();
+                  }
+              }
+
+              private void hideSystemUI() {
+                  View decorView = getWindow().getDecorView();
+                  decorView.setSystemUiVisibility(
+                      View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                      | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                      | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                      | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                      | View.SYSTEM_UI_FLAG_FULLSCREEN
+                  );
+              }
+          }
+          """
+              open(ma, "w").write(code)
+              print("Modo inmersivo activado en:", ma)
+
+          # 3. Reemplazar iconos en todas las densidades
+          icon_file = next((f for f in ["icon.png", "icon-512.png", "icon-192.png"] if os.path.exists(f)), None)
+          if icon_file:
+              img = Image.open(icon_file).convert("RGBA")
+              sizes = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+              for dpi, sz in sizes.items():
+                  d = f"android/app/src/main/res/mipmap-{dpi}"
+                  os.makedirs(d, exist_ok=True)
+                  resized = img.resize((sz, sz), Image.Resampling.LANCZOS)
+                  resized.save(f"{d}/ic_launcher.png")
+                  resized.save(f"{d}/ic_launcher_round.png")
+              for xml in glob.glob("android/app/src/main/res/mipmap-anydpi*/*.xml"):
+                  os.remove(xml)
+              print("Icono inyectado correctamente desde:", icon_file)
+          else:
+              print("ADVERTENCIA: No se encontro ningun archivo de icono en el repo")
           '
 
       - name: Compilar APK de Android
